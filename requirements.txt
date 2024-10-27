@@ -1,0 +1,11 @@
+Flask==2.2.5
+requests==2.31.0
+openai==0.27.8
+sqlite3-binary==0.0.1
+twilio==8.5.0
+geopy==2.3.0
+pymongo[srv]==4.5.0
+bson==0.5.10
+certifi==2023.7.22
+gunicorn==21.2.0  # Optional: for production deployment on platforms like Heroku
+sinch==0.4.0  # Ensure this matches the latest version you're using
