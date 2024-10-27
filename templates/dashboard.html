@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>911 Dispatcher Dashboard</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+
+    <style>
+        #map {
+            height: 100%;
+            width: 100%;
+	    z-index: 0;
+        }
+
+        .emergency-item:hover {
+            transform: scale(1.03);
+            transition: transform 0.2s ease-in-out;
+        }
+
+        .sidebar-toggle {
+            cursor: pointer;
+        }
+
+        .smooth-transition {
+            transition: all 0.3s ease;
+        }
+
+        #incident-details {
+            transition: none;
+            opacity: 1;
+            position: relative;
+            z-index: 999;
+        }
+
+        .unit-item {
+            padding: 8px;
+            font-size: 0.875rem;
+        }
+
+        .unit-item button {
+            font-size: 0.75rem;
+            padding: 4px 8px;
+        }
+
+        .unit-card:hover {
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+
+
+	#tone1-bar, #tone2-bar {
+    transition: width 0.5s ease-in-out;
+}
+
+.emotion-card {
+    transition: transform 0.3s ease-in-out;
+}
+
+.emotion-card:hover {
+    transform: scale(1.03);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+
+        .badge {
+            border-radius: 50%;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+            color: white;
+        }
+
+        /* Responsive design adjustments */
+        @media (max-width: 768px) {
+            aside#sidebar {
+                width: 100%;
+            }
+
+            aside#incident-details {
+                width: 100%;
+            }
+
+            div#dispatch-section {
+                flex-direction: column;
+                div {
+                    width: 100%;
+                }
+            }
+        }
+
+        /* Slide-in animations */
+        .slide-in {
+            transform: translateX(100%);
+            transition: transform 0.3s ease-in-out;
+        }
+
+        .slide-out {
+            transform: translateX(0);
+        }
+
+        /* Modal styles to center in the page */
+        #unit-selection-modal {
+            background-color: rgba(0, 0, 0, 0.5); /* dimmed background */
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100">
+
+    <div class="flex h-screen">
+
+        <!-- Sidebar for Emergency List -->
+        <aside id="sidebar" class="w-1/4 bg-white p-4 border-r border-gray-200 overflow-y-auto">
+            <h2 class="text-xl font-bold mb-4">Emergencies</h2>
+
+            <!-- Filter and Counters Section -->
+            <div class="mb-4">
+    <!-- Filter and Sort Section -->
+    <div class="flex justify-between items-center text-sm mb-2">
+        <span><strong id="total-count">0</strong> Total</span>
+        <span><strong id="critical-count">0</strong> Critical</span>
+        <span><strong id="resolved-count">0</strong> Resolved</span>
+    </div>
+    
+    <!-- Sort Dropdown -->
+    <select id="sort-select" class="w-full p-2 border rounded-md text-sm" onchange="sortEmergencies()">
+        <option value="recent">Sort by Recent Calls</option>
+        <option value="oldest">Sort by Oldest Calls</option>
+        <option value="emergency-level">Sort by Emergency Level</option>
+    </select>
+</div>
+
+            <div id="emergencies-list" class="space-y-4">
+                <!-- Dynamic list of emergencies will be inserted here -->
+            </div>
+        </aside>
+
+        <div class="flex-grow flex flex-col">
+
+            <!-- Map and Incident Details Container -->
+            <div class="flex flex-grow relative">
+
+                <!-- Map Section -->
+                <div id="map" class="w-full"></div>
+
+                <!-- Incident Details Section - initially hidden -->
+                <aside id="incident-details" class="hidden w-1/3 bg-white p-4 border-l border-gray-200 absolute right-0 top-0 h-full">
+                    <h2 class="text-xl font-bold mb-2" id="emergency-title">Select an emergency</h2>
+                    <span id="emergency-level" class="text-red-600 font-bold"></span>
+		    <img id="incident-img" src="https://via.placeholder.com/400x200" alt="Incident" class="mt-4 rounded-md lazy-load">
+                    <div class="mt-4">
+                        <p><strong>Location:</strong> <span id="emergency-location">N/A</span></p>
+                        <p><strong>Time:</strong> <span id="emergency-time">N/A</span></p>
+                        <p id="emergency-summary" class="mt-2"><strong>Summary:</strong> No incident selected.</p>
+                        <p id="emergency-assigned" class="text-green-500 mt-2"><strong>Assigned Unit:</strong> <span>N/A</span></p>
+                    </div>
+
+                    <!-- Caller Emotion Section -->
+                    <!-- Caller Emotion Section -->
+
+
+    <!-- Emotion Card 1 -->
+<div id="caller-emotion-section" class="mt-6 space-y-4">
+    <div class="emotion-card p-4 bg-white rounded-lg shadow-md border">
+        <div class="flex justify-between items-center">
+            <h4 id="tone1-name" class="text-xl font-bold">Emotion 1</h4>
+            <span id="tone1-percentage" class="text-gray-600 font-medium">40%</span>
+        </div>
+        <div class="w-full bg-gray-300 rounded-full h-4 mt-2">
+            <div id="tone1-bar" class="bg-purple-500 h-4 rounded-full" style="width: 60%;"></div>
+        </div>
+    </div>
+
+    <div class="emotion-card p-4 bg-white rounded-lg shadow-md border">
+        <div class="flex justify-between items-center">
+            <h4 id="tone2-name" class="text-xl font-bold">Emotion 2</h4>
+            <span id="tone2-percentage" class="text-gray-600 font-medium">40%</span>
+        </div>
+        <div class="w-full bg-gray-300 rounded-full h-4 mt-2">
+            <div id="tone2-bar" class="bg-purple-500 h-4 rounded-full" style="width: 40%;"></div>
+        </div>
+    </div>
+</div>
+
+
+                </aside>
+
+            </div>
+
+            <!-- Units Section and Dispatch Area - Initially hidden -->
+            <div id="dispatch-section" class="hidden flex border-t border-gray-200">
+                
+                <!-- Available Units Section -->
+                <div class="w-1/2 bg-white p-4 border-r border-gray-200">
+                    <h2 class="text-2xl font-bold mb-6">Available Units</h2>
+                    <div id="units-list" class="grid grid-cols-1 gap-6">
+                        <!-- Dynamic cards for units will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Dispatch Section -->
+                <div class="w-1/2 bg-white p-4">
+                    <h2 class="text-xl font-bold mb-4">Dispatch Responders</h2>
+                    <div class="flex space-x-2">
+                        <button class="flex items-center bg-blue-500 text-white font-bold px-4 py-2 rounded-md shadow-md hover:bg-blue-600 transition duration-150 ease-in-out"
+                                onclick="showUnitSelection('Police')">
+                            Police
+                        </button>
+
+                        <button class="flex items-center bg-red-500 text-white font-bold px-4 py-2 rounded-md shadow-md hover:bg-red-600 transition duration-150 ease-in-out"
+                                onclick="showUnitSelection('Firefighters')">
+                            Firefighters
+                        </button>
+
+                        <button class="flex items-center bg-green-500 text-white font-bold px-4 py-2 rounded-md shadow-md hover:bg-green-600 transition duration-150 ease-in-out"
+                                onclick="showUnitSelection('Paramedics')">
+                            Paramedics
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Unit Selection Modal -->
+    <!-- Unit Selection Modal -->
+<div id="unit-selection-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+    <div class="bg-white p-6 rounded-lg shadow-lg w-96">
+        <h2 class="text-xl font-bold mb-4">Select Unit to Dispatch</h2>
+        <select id="unit-select" class="border p-2 rounded w-full">
+            <!-- Options will be dynamically populated with available units -->
+        </select>
+        <div class="mt-4 flex justify-between">
+            <button class="bg-blue-500 text-white px-4 py-2 rounded-md" onclick="dispatchSelectedUnit()">Dispatch</button>
+            <button class="bg-gray-500 text-white px-4 py-2 rounded-md ml-2" onclick="closeModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+
+    <!-- Leaflet Map Initialization Script -->
+    <script>
+        var map = L.map('map').setView([37.8199, -122.4783], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        let currentMarker;
+        let emergencies = [];
+        let selectedUnitType = '';
+        let selectedEmergency = null;
+
+        // Custom icons for units
+        const policeIcon = L.icon({
+            iconUrl: '/static/police.png',
+            iconSize: [38, 38],
+            iconAnchor: [19, 38],
+            popupAnchor: [0, -38]
+        });
+
+        const paramedicIcon = L.icon({
+            iconUrl: '/static/ambulance.png',
+            iconSize: [38, 38],
+            iconAnchor: [19, 38],
+            popupAnchor: [0, -38]
+        });
+
+        const firefighterIcon = L.icon({
+            iconUrl: '/static/fire.png',
+            iconSize: [38, 38],
+            iconAnchor: [19, 38],
+            popupAnchor: [0, -38]
+        });
+
+        const availableUnits = [
+            { type: 'Police', available: 5, color: 'blue' },
+            { type: 'Firefighters', available: 5, color: 'red' },
+            { type: 'Paramedics', available: 5, color: 'green' }
+        ];
+
+        const unitIconMap = {
+            'Police': policeIcon,
+            'Paramedics': paramedicIcon,
+            'Firefighters': firefighterIcon
+        };
+
+async function fetchEmergencies() {
+    try {
+        const response = await fetch('/api/emergencies');
+        const data = await response.json();
+        emergencies = data.emergencies || [];
+
+        // Keep track of the currently selected emergency's title (if any)
+        const selectedTitle = selectedEmergency ? selectedEmergency.title : null;
+
+        if (emergencies.length > 0) {
+            loadEmergencyList(emergencies);
+            updateCounters(emergencies);
+
+            // Re-select the previously selected emergency if applicable
+            if (selectedTitle) {
+                const reselectEmergency = emergencies.find(e => e.title === selectedTitle);
+                if (reselectEmergency) {
+                    selectEmergency(reselectEmergency);
+                }
+            }
+        } else {
+            console.log('No emergencies available.');
+        }
+    } catch (error) {
+        console.error('Error fetching emergencies:', error);
+    }
+}
+
+
+        function updateCounters(emergencies) {
+            const totalCount = emergencies.length;
+            const criticalCount = emergencies.filter(emergency => emergency.level === 'Critical').length;
+            const resolvedCount = emergencies.filter(emergency => emergency.level === 'Resolved').length;
+
+            document.getElementById('total-count').textContent = totalCount;
+            document.getElementById('critical-count').textContent = criticalCount;
+            document.getElementById('resolved-count').textContent = resolvedCount;
+        }
+
+let currentSort = 'recent'; // Default sort by recent
+
+// Function to sort emergencies and re-render the list
+function sortEmergencies() {
+    const sortType = document.getElementById('sort-select').value;
+
+    if (sortType === 'recent') {
+        // Sort by most recent call (descending by time)
+        emergencies.sort((a, b) => new Date(b.time) - new Date(a.time));
+    } else if (sortType === 'oldest') {
+        // Sort by oldest call (ascending by time)
+        emergencies.sort((a, b) => new Date(a.time) - new Date(b.time));
+    } else if (sortType === 'emergency-level') {
+        // Sort by emergency level
+        const levelPriority = {
+            'Critical': 1,
+            'Major': 2,
+            'Minor': 3,
+            'Non-Emergency': 4,
+            'Resolved': 5
+        };
+        emergencies.sort((a, b) => levelPriority[a.level] - levelPriority[b.level]);
+    }
+
+    loadEmergencyList(emergencies);
+}
+
+// Update loadEmergencyList to include sorting
+function loadEmergencyList(emergencies) {
+    const emergencyList = document.getElementById('emergencies-list');
+    emergencyList.innerHTML = ''; // Clear existing items
+
+    emergencies.forEach(emergency => {
+        const div = document.createElement('div');
+        div.classList.add('p-3', 'rounded-lg', 'border', 'flex', 'justify-between', 'items-center', 'cursor-pointer', 'hover:shadow-lg', 'smooth-transition');
+
+        let icon = '';
+        let labelColor = '';
+        if (emergency.level === 'Critical') {
+            icon = '⚠️';  
+            labelColor = 'bg-red-500 text-white';
+        } else if (emergency.level === 'Major') {
+            icon = '❗';
+            labelColor = 'bg-orange-500 text-white';
+        } else if (emergency.level === 'Minor') {
+            icon = '⚐';
+            labelColor = 'bg-yellow-500 text-white';
+        } else if (emergency.level === 'Non-Emergency') {
+            icon = 'ℹ️';
+            labelColor = 'bg-blue-500 text-white';
+        } else if (emergency.level === 'Resolved') {
+            icon = '✔️';
+            labelColor = 'bg-gray-500 text-white';
+        }
+
+        div.innerHTML = `
+            <div class="flex items-center space-x-3">
+                <span class="text-lg">${icon}</span>
+                <div>
+                    <span class="font-bold">${emergency.title}</span>
+                    <div class="text-sm text-gray-500">${emergency.time}</div>
+                </div>
+            </div>
+            <div class="px-2 py-1 rounded-full ${labelColor} font-semibold text-sm">
+                ${emergency.level.toUpperCase()}
+            </div>
+        `;
+
+        div.onclick = () => selectEmergency(emergency);
+        emergencyList.appendChild(div);
+    });
+}
+
+// Call fetchEmergencies on load and apply default sorting
+window.onload = async () => {
+    await fetchEmergencies();
+    sortEmergencies(); // Apply sorting after fetching emergencies
+};
+
+function selectEmergency(emergency) {
+    // Update the emergency title, location, and other details
+    document.getElementById('emergency-title').textContent = emergency.title;
+    document.getElementById('emergency-level').textContent = emergency.level.toUpperCase();
+    document.getElementById('emergency-location').textContent = emergency.location;
+    document.getElementById('emergency-time').textContent = emergency.time;
+    document.getElementById('emergency-summary').textContent = emergency.summary;
+    document.getElementById('emergency-assigned').textContent = emergency.assigned_units || 'N/A';
+
+    // Update Street View image (if lat/lng are available)
+    if (emergency.latitude && emergency.longitude) {
+        const streetViewImageUrl = `https://maps.googleapis.com/maps/api/streetview?location=${emergency.latitude},${emergency.longitude}&size=400x200&key=AIzaSyCEwHA7NLULGsMIyr8JABNCzzAwVVvTaRY`;
+        document.getElementById('incident-img').src = streetViewImageUrl;
+    } else {
+        document.getElementById('incident-img').src = "https://via.placeholder.com/400x200";
+    }
+
+    // Dynamically update caller emotion section based on the emergency data
+    updateCallerEmotion('tone1', emergency.tone1, emergency.tone1_percentage);
+    updateCallerEmotion('tone2', emergency.tone2, emergency.tone2_percentage);
+
+    // Set the map marker
+    if (currentMarker) {
+        map.removeLayer(currentMarker);
+    }
+    currentMarker = L.marker([emergency.latitude, emergency.longitude]).addTo(map)
+        .bindPopup(`<b>${emergency.title}</b><br>${emergency.level}`)
+        .openPopup();
+
+    map.setView([emergency.latitude, emergency.longitude], 14);
+
+    // Show incident details and dispatch section
+    document.getElementById('incident-details').classList.remove('hidden');
+    document.getElementById('dispatch-section').classList.remove('hidden');
+
+    // Set selected emergency globally
+    selectedEmergency = emergency;
+
+    // Refresh available units
+    loadAvailableUnits();
+}
+
+// Helper function to update caller emotion dynamically
+function updateCallerEmotion(elementIdPrefix, emotion, percentage) {
+    document.getElementById(`${elementIdPrefix}-name`).textContent = emotion || 'N/A';
+    document.getElementById(`${elementIdPrefix}-percentage`).textContent = percentage || '0';
+    document.getElementById(`${elementIdPrefix}-bar`).style.width = `${percentage || 0}%`;
+}
+
+
+
+
+
+        function loadAvailableUnits() {
+            const unitsList = document.getElementById('units-list');
+            unitsList.innerHTML = ''; // Clear existing units
+
+            availableUnits.forEach((unit, index) => {
+                const div = document.createElement('div');
+                div.classList.add('unit-card', 'bg-white', 'p-6', 'rounded-xl', 'shadow-lg', 'transition-transform', 'transform', 'hover:scale-105', 'hover:shadow-2xl', 'border', 'border-gray-200', 'flex', 'items-center', 'justify-between', 'space-x-4');
+
+                const badgeColor = `bg-${unit.color}-500`;
+
+                div.innerHTML = `
+                    <div class="flex items-center space-x-4">
+                        <div class="icon flex-shrink-0">
+                            <div class="h-12 w-12 ${badgeColor} text-white rounded-full flex items-center justify-center">
+                                <span class="font-bold text-lg">${unit.type[0]}</span>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-800">${unit.type}</h3>
+                            <p class="text-sm text-gray-500">Available: ${unit.available}</p>
+                        </div>
+                    </div>
+                    <div>
+                        <button class="bg-${unit.color}-500 text-white px-4 py-2 rounded-lg shadow-md hover:bg-${unit.color}-600 transition ease-in-out duration-150"
+                            onclick="showUnitSelection('${unit.type}')">
+                            Dispatch
+                        </button>
+                    </div>
+                `;
+                unitsList.appendChild(div);
+            });
+        }
+
+        function showUnitSelection(unitType) {
+            selectedUnitType = unitType;
+            selectedEmergency = emergencies.find(e => e.title === document.getElementById('emergency-title').textContent);
+
+            const unitSelect = document.getElementById('unit-select');
+            unitSelect.innerHTML = ''; // Clear previous options
+
+            // Add all 5 units for the selected type (e.g., Police Unit 1 to 5)
+            for (let i = 1; i <= 5; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = `${unitType} Unit ${i}`;
+                unitSelect.appendChild(option);
+            }
+
+            document.getElementById('unit-selection-modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('unit-selection-modal').classList.add('hidden');
+        }
+
+async function dispatchSelectedUnit() {
+    const selectedUnitIndex = document.getElementById('unit-select').value;
+    const unit = availableUnits.find(u => u.type === selectedUnitType);
+
+    if (selectedEmergency && unit && unit.available > 0) {
+        const selectedUnit = `${unit.type} Unit ${selectedUnitIndex}`;
+
+        // Decrease available units
+        unit.available -= 1;
+
+        // Add the dispatched unit to the emergency's assigned units
+        selectedEmergency.assigned_units = selectedEmergency.assigned_units
+            ? `${selectedEmergency.assigned_units}, ${selectedUnit}`
+            : selectedUnit;
+
+        // Update the UI with the new assigned units
+        document.getElementById('emergency-assigned').textContent = selectedEmergency.assigned_units;
+
+        // Send the dispatched unit to the backend
+        try {
+            await fetch('/api/dispatch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    unit_type: unit.type,
+                    unit_id: selectedUnitIndex,
+                    emergency_id: selectedEmergency.id
+                })
+            });
+
+            console.log(`${selectedUnit} dispatched successfully.`);
+        } catch (error) {
+            console.error('Error dispatching unit:', error);
+        }
+
+        // Add a marker for the dispatched unit on the map
+        const offsetLat = getRandomOffset();
+        const offsetLng = getRandomOffset();
+        const newLat = selectedEmergency.latitude + offsetLat;
+        const newLng = selectedEmergency.longitude + offsetLng;
+
+        L.marker([newLat, newLng], { icon: unitIconMap[unit.type] })
+            .addTo(map)
+            .bindPopup(`${selectedUnit} dispatched to ${selectedEmergency.title}`)
+            .openPopup();
+
+        // Refresh available units and close the modal
+        loadAvailableUnits();
+        closeModal();
+    } else {
+        alert('No available units or emergency selected.');
+    }
+}
+
+
+
+
+        function getRandomOffset() {
+            const offset = (Math.random() - 0.5) * 0.01; // Adjust the multiplier for a larger or smaller offset
+            return offset;
+        }
+
+        window.onload = async () => {
+    await fetchEmergencies();
+    sortEmergencies(); // Apply the default sorting (by recent calls)
+
+    // Poll every 10 seconds to fetch new emergencies
+    setInterval(async () => {
+        await fetchEmergencies();
+        sortEmergencies(); // Re-sort based on the user's selection
+    }, 10000); // 10000 ms = 10 seconds
+};
+
+    </script>
+
+</body>
+</html>
+
+
+
