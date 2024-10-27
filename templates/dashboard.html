@@ -421,7 +421,7 @@ function selectEmergency(emergency) {
 
     // Update Street View image (if lat/lng are available)
     if (emergency.latitude && emergency.longitude) {
-        const streetViewImageUrl = `https://maps.googleapis.com/maps/api/streetview?location=${emergency.latitude},${emergency.longitude}&size=400x200&key=AIzaSyCEwHA7NLULGsMIyr8JABNCzzAwVVvTaRY`;
+        const streetViewImageUrl = `https://maps.googleapis.com/maps/api/streetview?location=${emergency.latitude},${emergency.longitude}&size=400x200&key=YOUR-API-KEY`;
         document.getElementById('incident-img').src = streetViewImageUrl;
     } else {
         document.getElementById('incident-img').src = "https://via.placeholder.com/400x200";
